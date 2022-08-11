@@ -1,6 +1,7 @@
 package mx.sekura.cancelationMassive.Reactor;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
@@ -45,19 +46,43 @@ public class ReactorUnit {
                 uploadFile.add(upload);
             }
         }
-        //1.- Iniciamos con la organización de los elementos
+        final Object[] asyncResponseData = {new WorkOrderResult()};
         CancellationHelper.builderCancellationDetailObject(cancellationFile, listResult -> {
             if (listResult.succeeded()) {
                 //Preparamos las acciones necesarias para ingresar documentos al Centro Digital
                 //1.-Obtenemos la información de la WorkOrden (Orden de trabajo) en ella, se encuenta la información de la carpeta.
                 //2.-Obtenemos la informació del cliente, para obtener el bucket
+                int i;
+                int cancellation;
+                int noCancellation;
+                //Interamos para ir obteniendo el detalle en la posición y cancelarlo
+                for(i =0; i<= listResult.result().size()-1; i++){
+                    CancellationDetail detail = listResult.result().get(i);
+                    //Paso 1.- Consultamos la información de la póliza por el número externo
+                    Future<WorkOrderResult> workOrderResultFuture = BusinessUnit.getWorkOrder(detail.getPolicy());
+                    workOrderResultFuture.onComplete(resultAsyncResult -> {
+                        if(resultAsyncResult.succeeded()){
+                            //Posición 0, Almacena la respuesta de la consulta del WorkOrder
+                            asyncResponseData[0] = resultAsyncResult.result();
+                        } else {
+                            routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(resultAsyncResult.cause().getMessage());
+                        }
+                    });
+                    List<Future> futures = new ArrayList<>();
+                    futures.add(workOrderResultFuture);
+
+                    CompositeFuture.all(futures)
+                    .onSuccess( success ->{
+                        if(success.succeeded(0)){
+                            WorkOrderResult resultSearch = (WorkOrderResult) asyncResponseData[0];
+                        } else {
+                        }
+                    });
+                }
 
                 //for (CancellationDetail detail : listResult.result()) {
-                int i;
-                for (i = 0; i<= listResult.result().size()-1; i++) {
-                    CancellationDetail detail = listResult.result().get(i);
-                    final JsonObject[] requestSearchByExternalNumber = {CancellationHelper.builderSearchByExternalNumber(detail.getPolicy())};
-                    BusinessUnit.getWorkOrder(requestSearchByExternalNumber[0], workOrderResultSearch -> {
+                    //////////////////////////////////////////////////////////////////////////////////////////////
+                    /*BusinessUnit.getWorkOrder(requestSearchByExternalNumber[0], workOrderResultSearch -> {
                         KernoCancelation cancelation = null;
                         try {
                             cancelation = CancellationHelper.buildCancellation(detail);
@@ -130,14 +155,6 @@ public class ReactorUnit {
                                                                 });
                                                             }
                                                         }
-
-                                                        /*Future<List<Integer>> responseCancellation = CancellationHelper.cancellationPolices(uploadFile,finalCancelation,keySaveDocument,folderResource[0],detail,workOrderResponse);
-                                                        responseCancellation.onComplete(listResultResponse -> {
-                                                            List<Integer> result = listResultResponse.result();
-                                                            acumulator1 = acumulator1 + result.get(0);
-                                                            acumulator[1] = acumulator[1]+ result[1];
-                                                        }); */
-
                                                     } else {
                                                         routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(customerInformation.cause().getMessage());
                                                     }
@@ -155,13 +172,13 @@ public class ReactorUnit {
                             e.printStackTrace();
                             routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code()).end(e.getMessage());
                         }
-                    });
-                    if(i == listResult.result().size()-1){
-                        routingContext.response().setStatusCode(HttpResponseStatus.OK.code()).putHeader("Content-Type", "json/application").end("Se concluye con la cancelación masiva");
-                    }
-                }
+                    }); */
+                    //////////////////////////////////////////////////////////////////////////////////////////////
 
-            } else {
+                    /*if(i == listResult.result().size()-1){
+                        routingContext.response().setStatusCode(HttpResponseStatus.OK.code()).putHeader("Content-Type", "json/application").end("Se concluye con la cancelación masiva");
+                    }*/
+                } else {
                 routingContext.response().setStatusCode(HttpResponseStatus.INTERNAL_SERVER_ERROR.code()).end(listResult.cause().getMessage());
             }
         });

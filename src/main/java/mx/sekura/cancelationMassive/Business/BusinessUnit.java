@@ -1,9 +1,6 @@
 package mx.sekura.cancelationMassive.Business;
 
-import io.vertx.core.AsyncResult;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
-import io.vertx.core.MultiMap;
+import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.FileUpload;
@@ -11,6 +8,7 @@ import io.vertx.ext.web.multipart.MultipartForm;
 import mx.sekura.cancelationMassive.Connection.WebClientConnection;
 import mx.sekura.cancelationMassive.Entity.Environment;
 import mx.sekura.cancelationMassive.Entity.WorkOrderResult;
+import mx.sekura.cancelationMassive.Helper.CancellationHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,6 +20,28 @@ import org.slf4j.LoggerFactory;
 public class BusinessUnit {
     private static final Logger logger = LoggerFactory.getLogger(BusinessUnit.class);
 
+    public static Future<WorkOrderResult> getWorkOrder(String policyInformation){
+        JsonObject policyObject = CancellationHelper.builderSearchByExternalNumber(policyInformation);
+
+        Promise<WorkOrderResult> result = Promise.promise();
+        WebClientConnection.getInstance().getClient() //Obtenemos el cliente
+                .post(Environment.getInstance().getKernoApiHost(),"/workorders?pSize=10&pStart=0&pOrder=")
+                .basicAuthentication("admin@system.xyz","Qwerty999.")
+                .sendJson(policyObject)
+                .onSuccess(asyncClient -> {
+                    if(asyncClient.statusCode() == 200){
+                        WorkOrderResult workOrderResult = asyncClient.bodyAsJson(WorkOrderResult.class);
+                        result.complete(workOrderResult);
+                    } else {
+                        logger.debug(asyncClient.bodyAsString());
+                        result.fail(asyncClient.statusMessage());
+                    }
+                })
+                .onFailure(ern -> {
+                    result.fail(ern.getMessage());
+        });
+        return result.future();
+    }
     public static void getWorkOrder(JsonObject policyInformation, Handler<AsyncResult<WorkOrderResult>> objectResponse) {
         WebClientConnection.getInstance().getClient() //Obtenemos el cliente
                 .post(Environment.getInstance().getKernoApiHost(),"/workorders?pSize=10&pStart=0&pOrder=")
