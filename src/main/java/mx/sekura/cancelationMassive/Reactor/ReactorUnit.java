@@ -106,28 +106,40 @@ public class ReactorUnit {
                                                         for (FileUpload upload : uploadFile) {
                                                             if (Objects.equals(upload.fileName(), detail.getDocumentToDigitalCenter())) {
                                                                 String finalKeySaveDocument = keySaveDocument;
-                                                                BusinessUnit.cancellationPolicy(new JsonObject(Json.encode(finalCancelation)), workOrderResponse.getWorkOrderId(), resultCancellation -> {
+                                                                logger.info("Aqui");
+                                                                Environment.getInstance().getVertx().fileSystem().readFile(upload.uploadedFileName(), result -> {
+                                                                    BusinessUnit.injectPdfToDigitalCenter(result.result().getBytes(),finalKeySaveDocument, folderResource[0],
+                                                                            "OTRO", String.valueOf(upload.size()), upload.fileName(), asyncResponse -> {
+                                                                                if (asyncResponse.succeeded()) {
+                                                                                    logger.debug("Lo insertó");
+                                                                                } else {
+                                                                                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(asyncResponse.cause().getMessage());
+                                                                                }
+                                                                    });
+
+                                                                    /*BusinessUnit.injectPdfToDigitalCenter(result.result().getBytes(), finalKeySaveDocument, folderResource[0],
+                                                                            "OTRO", String.valueOf(upload.size()), upload.fileName(), insertDocumentResponse -> {
+                                                                                if (insertDocumentResponse.succeeded()) {
+                                                                                    logger.debug("Lo insertó");
+                                                                                } else {
+                                                                                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(insertDocumentResponse.cause().getMessage());
+                                                                                }
+                                                                            });*/
+                                                                });
+
+                                                                /*BusinessUnit.cancellationPolicy(new JsonObject(Json.encode(finalCancelation)), workOrderResponse.getWorkOrderId(), resultCancellation -> {
                                                                     if (!resultCancellation.succeeded()) {
                                                                         logger.info("Error al cancelar la póliza:" + workOrderResponse.getExternalNumber());
                                                                     } else {
                                                                         if (resultCancellation.result() == 1) {
                                                                             logger.info("Se canceló la póliza:" + workOrderResponse.getExternalNumber());
-                                                                            Environment.getInstance().getVertx().fileSystem().readFile(upload.uploadedFileName(), result -> {
-                                                                                BusinessUnit.injectPdfToDigitalCenter(result.result().getBytes(), finalKeySaveDocument, folderResource[0],
-                                                                                        "OTRO", String.valueOf(upload.size()), upload.fileName(), insertDocumentResponse -> {
-                                                                                            if (insertDocumentResponse.succeeded()) {
-                                                                                                logger.debug("Lo insertó");
-                                                                                            } else {
-                                                                                                routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(insertDocumentResponse.cause().getMessage());
-                                                                                            }
-                                                                                        });
-                                                                            });
+
                                                                         } else {
                                                                             logger.info("Error al cancelar la póliza:" + workOrderResponse.getExternalNumber());
 
                                                                         }
                                                                     }
-                                                                });
+                                                                }); */
                                                             }
                                                         }
 
@@ -139,6 +151,7 @@ public class ReactorUnit {
                                                         }); */
 
                                                     } else {
+                                                        logger.info(customerInformation.cause().getMessage());
                                                         routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(customerInformation.cause().getMessage());
                                                     }
                                                 });

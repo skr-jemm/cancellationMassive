@@ -5,14 +5,25 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.FileUpload;
 import io.vertx.ext.web.multipart.MultipartForm;
+import jakarta.ws.rs.client.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import mx.sekura.cancelationMassive.Connection.WebClientConnection;
 import mx.sekura.cancelationMassive.Entity.Environment;
 import mx.sekura.cancelationMassive.Entity.WorkOrderResult;
+import org.apache.commons.codec.BinaryDecoder;
+import org.apache.commons.codec.binary.BinaryCodec;
+import org.glassfish.jersey.media.multipart.FormDataMultiPart;
+import org.glassfish.jersey.media.multipart.MultiPart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.math.BigInteger;
+import java.util.Base64;
 
 /**
  * @author: Jorge Martinez Mohedano
@@ -96,6 +107,26 @@ public class BusinessUnit {
                     customerInformation.handle(Future.failedFuture(ern.getMessage()));
         });
     }
+    public static void injectionPDF(byte[] upload, String key, String name, String description, String size, String filename, Handler<AsyncResult<Integer>> asyncResultHandler){
+        Integer i = 1;
+        Client client = ClientBuilder.newClient();
+        logger.info(Environment.getInstance().getKernoApiHost() + "/cloud/bucket/folder/upload2");
+        WebTarget webTarget = client.target(Environment.getInstance().getKernoApiHost() + "/cloud/bucket/folder/upload2");
+
+        FormDataMultiPart multiPart = new FormDataMultiPart();
+        multiPart.field("file", new BigInteger(upload).toString());
+        multiPart.field("key",key);
+        multiPart.field("name",name);
+        multiPart.field("description",description);
+        multiPart.field("size",size);
+
+        Invocation.Builder builder = webTarget.request();
+        Response response = builder.post(Entity.entity(multiPart,MediaType.MULTIPART_FORM_DATA_TYPE));
+
+        logger.info(String.valueOf(response.getStatus()));
+        logger.info(response.readEntity(String.class));
+        asyncResultHandler.handle(Future.succeededFuture(response.getStatus()));
+    }
     public static void injectPdfToDigitalCenter (byte[] upload,
             String key, String name, String description, String size, String filename
             ,Handler<AsyncResult<Integer>> statusInserted){
@@ -108,9 +139,13 @@ public class BusinessUnit {
         form.attribute("size",size);
 
 
+
+
         WebClientConnection.getInstance().getClient()
                 .post(Environment.getInstance().getKernoApiHost(),"/cloud/bucket/folder/upload2")
                 .basicAuthentication("admin@system.xyz","Qwerty999.")
+                .putHeader("AuditId","8")
+                .putHeader("content-type", "multipart/form-data")
                 .sendMultipartForm(form)
                 .onSuccess(result -> {
                     if(result.statusCode() == 200){

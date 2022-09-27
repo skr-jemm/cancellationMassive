@@ -22,6 +22,13 @@ dependencies {
     implementation("org.apache.poi:poi:5.2.2")
     implementation("org.apache.poi:poi-ooxml:5.2.2")
     implementation ("com.fasterxml.jackson.core:jackson-databind:$jacksonDataBin")
+    // https://mvnrepository.com/artifact/org.glassfish.jersey.core/jersey-client
+    implementation("org.glassfish.jersey.core:jersey-client:3.1.0-M8")
+    // https://mvnrepository.com/artifact/org.glassfish.jersey.media/jersey-media-multipart
+    implementation("org.glassfish.jersey.media:jersey-media-multipart:3.1.0-M8")
+    // https://mvnrepository.com/artifact/org.glassfish.jersey.inject/jersey-hk2
+    implementation("org.glassfish.jersey.inject:jersey-hk2:3.1.0-M8")
+
 
 }
 
