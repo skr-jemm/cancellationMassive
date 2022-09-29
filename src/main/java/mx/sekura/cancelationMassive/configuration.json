@@ -1,5 +1,5 @@
 {
   "production": true,
-  "kernoApiHost":"kerno.sekura.mx",
+  "kernoApiHost":"devkerno.sekura.mx",
   "port": 2022
 }

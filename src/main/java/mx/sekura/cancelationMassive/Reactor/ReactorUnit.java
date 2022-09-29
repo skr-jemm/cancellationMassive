@@ -2,6 +2,7 @@ package mx.sekura.cancelationMassive.Reactor;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.Future;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.FileUpload;
@@ -12,6 +13,7 @@ import mx.sekura.cancelationMassive.Helper.CancellationHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -32,7 +34,7 @@ public class ReactorUnit {
         //1.-fileCancellation: relación de los documentos a eliminar
         //2.-fileUpload: achivo a subir
         FileUpload cancellationFile = null;
-        List<FileUpload> uploadFile = new ArrayList<>();
+        List<PdfBuffer> uploadFile = new ArrayList<>();
         //Recorremos el arreglo para acomodar en dos variables,
         // 1.- La primera el el archivo de cancelación
         // 2.- Los archivos a subir
@@ -41,8 +43,12 @@ public class ReactorUnit {
             if (upload.name().equals("fileCancellation")) {
                 cancellationFile = upload;
             } else {
-                logger.debug(upload.fileName());
-                uploadFile.add(upload);
+                Buffer uploadElement = Environment.getInstance().getVertx().fileSystem().readFileBlocking(upload.uploadedFileName());
+                PdfBuffer buffer = new PdfBuffer();
+                buffer.setBuffer(uploadElement);
+                buffer.setPolicyName(upload.fileName());
+                buffer.setSize(String.valueOf(upload.size()));
+                uploadFile.add(buffer);
             }
         }
         //1.- Iniciamos con la organización de los elementos
@@ -103,30 +109,22 @@ public class ReactorUnit {
                                                         logger.debug(keySaveDocument);
                                                         //Procedemos primero con la inserción del documento del PDF.
                                                         //Recoremos primero los documentos de cancelacion
-                                                        for (FileUpload upload : uploadFile) {
-                                                            if (Objects.equals(upload.fileName(), detail.getDocumentToDigitalCenter())) {
+                                                        for (PdfBuffer upload : uploadFile) {
+                                                            if (Objects.equals(upload.getPolicyName(), detail.getDocumentToDigitalCenter())) {
                                                                 String finalKeySaveDocument = keySaveDocument;
                                                                 logger.info("Aqui");
-                                                                Environment.getInstance().getVertx().fileSystem().readFile(upload.uploadedFileName(), result -> {
-                                                                    BusinessUnit.injectPdfToDigitalCenter(result.result().getBytes(),finalKeySaveDocument, folderResource[0],
-                                                                            "OTRO", String.valueOf(upload.size()), upload.fileName(), asyncResponse -> {
-                                                                                if (asyncResponse.succeeded()) {
-                                                                                    logger.debug("Lo insertó");
-                                                                                } else {
-                                                                                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(asyncResponse.cause().getMessage());
-                                                                                }
-                                                                    });
-
-                                                                    /*BusinessUnit.injectPdfToDigitalCenter(result.result().getBytes(), finalKeySaveDocument, folderResource[0],
-                                                                            "OTRO", String.valueOf(upload.size()), upload.fileName(), insertDocumentResponse -> {
-                                                                                if (insertDocumentResponse.succeeded()) {
-                                                                                    logger.debug("Lo insertó");
-                                                                                } else {
-                                                                                    routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(insertDocumentResponse.cause().getMessage());
-                                                                                }
-                                                                            });*/
-                                                                });
-
+                                                                try {
+                                                                    BusinessUnit.injectPdfToDigitalCenter(upload.getBuffer(), finalKeySaveDocument, folderResource[0],
+                                                                               "OTRO", upload.getSize(), upload.getPolicyName(), insertDocumentResponse -> {
+                                                                                   if (insertDocumentResponse.succeeded()) {
+                                                                                       logger.debug("Lo insertó");
+                                                                                   } else {
+                                                                                       routingContext.response().setStatusCode(HttpResponseStatus.BAD_REQUEST.code()).end(insertDocumentResponse.cause().getMessage());
+                                                                                   }
+                                                                               });
+                                                                } catch (IOException e) {
+                                                                    throw new RuntimeException(e);
+                                                                }
                                                                 /*BusinessUnit.cancellationPolicy(new JsonObject(Json.encode(finalCancelation)), workOrderResponse.getWorkOrderId(), resultCancellation -> {
                                                                     if (!resultCancellation.succeeded()) {
                                                                         logger.info("Error al cancelar la póliza:" + workOrderResponse.getExternalNumber());
